@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cámaras en Vivo - Costa Atlántica</title>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <style>
+        body { margin: 0; padding: 20px; background: #121212; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: white; }
+        h1 { text-align: center; font-weight: 300; color: #00d2ff; margin-bottom: 30px; }
+        h2 { border-left: 4px solid #00d2ff; padding-left: 15px; margin: 40px 0 20px 0; color: #aaa; text-transform: uppercase; font-size: 1.1rem; letter-spacing: 1px; }
+        
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        .video-card {
+            background: #1e1e1e;
+            border-radius: 12px;
+            overflow: hidden;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            border: 1px solid #333;
+        }
+        
+        .video-card:hover { transform: translateY(-5px); border-color: #00d2ff; box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
+
+        .video-wrapper { position: relative; width: 100%; aspect-ratio: 16/9; background: #000; overflow: hidden; }
+        
+        video, iframe { width: 100%; height: 100%; border: none; object-fit: cover; }
+
+        .video-card span { display: block; padding: 12px; font-size: 13px; text-align: center; background: #1e1e1e; border-top: 1px solid #333; }
+
+        .badge {
+            position: absolute; top: 10px; left: 10px;
+            background: rgba(0,0,0,0.8); padding: 3px 8px;
+            border-radius: 4px; font-size: 10px; color: #00d2ff; z-index: 5;
+            font-weight: bold; border: 1px solid #00d2ff;
+        }
+
+        /* Modal */
+        .modal {
+            display: none; position: fixed; z-index: 1000;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.95); justify-content: center; align-items: center;
+        }
+        .modal-content { width: 90%; max-width: 1100px; position: relative; aspect-ratio: 16/9; }
+        .modal-video-container { width: 100%; height: 100%; background: #000; border: 2px solid #00d2ff; border-radius: 8px; overflow: hidden; }
+        .close-btn { position: absolute; top: -50px; right: 0; font-size: 40px; color: white; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <h1>Cámaras web</h1>
+    <div id="main-container"></div>
+
+    <div id="videoModal" class="modal" onclick="closeModal()">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <span class="close-btn" onclick="closeModal()">&times;</span>
+            <div id="modalContent" class="modal-video-container"></div>
+        </div>
+    </div>
+
+    <script>
+        const streams = [
+            // --- VILLA GESELL ---
+            { city: "Villa Gesell", name: "Bs As y Playa", type: "hls", url: "https://cambsasyplaya.gesell.com.ar/playlist.m3u8" },
+            { city: "Villa Gesell", name: "Muelle General", type: "hls", url: "https://cammuelle.gesell.com.ar/playlist.m3u8" },
+            { city: "Villa Gesell", name: "Muelle Olas", type: "hls", url: "https://cammuelle2.gesell.com.ar/playlist.m3u8" },
+            { city: "Villa Gesell", name: "Paseo 112 y Playa", type: "hls", url: "https://cam112yplaya.gesell.com.ar/playlist.m3u8" },
+            { city: "Villa Gesell", name: "Mar de las Pampas", type: "hls", url: "https://camlapinocha.gesell.com.ar/playlist.m3u8" },
+            { city: "Villa Gesell", name: "104 y Av 3 (Sur)", type: "hls", url: "https://cam104y3.gesell.com.ar/playlist.m3u8" },
+            { city: "Villa Gesell", name: "104 y Av 3 (Norte)", type: "hls", url: "https://cam104.gesell.com.ar/playlist.m3u8" },
+            { city: "Villa Gesell", name: "107 y Av 3 (Sur)", type: "hls", url: "https://cam107sur.gesell.com.ar/playlist.m3u8" },
+            { city: "Villa Gesell", name: "107 y Av 3 (Norte)", type: "hls", url: "https://cam107norte.gesell.com.ar/playlist.m3u8" },
+            { city: "Villa Gesell", name: "Parroquia", type: "hls", url: "https://camparroquia.gesell.com.ar/playlist.m3u8" },
+            { city: "Villa Gesell", name: "Plaza Carlos Gesell", type: "hls", url: "https://camplaza111.gesell.com.ar/playlist.m3u8" },
+            { city: "Villa Gesell", name: "Plaza de las Americas", type: "hls", url: "http://camplazaamericas.gesell.com.ar/playlist.m3u8" },
+            { city: "Villa Gesell", name: "Bosque histórico", type: "hls", url: "https://cambosque.gesell.com.ar/playlist.m3u8" },
+            { city: "Villa Gesell", name: "Aeropuerto", type: "hls", url: "https://camaeropuerto.gesell.com.ar/playlist.m3u8" },
+            { city: "Villa Gesell", name: "Faro Querandi", type: "hls", url: "https://camfaro.gesell.com.ar/playlist.m3u8" },
+            { city: "Villa Gesell", name: "Acceso Norte (Ciudad)", type: "hls", url: "https://camarco.gesell.com.ar/playlist.m3u8" },
+            { city: "Villa Gesell", name: "Acceso Norte (Ruta)", type: "hls", url: "https://camarco2.gesell.com.ar/playlist.m3u8" },
+
+            // --- PINAMAR ---
+            { city: "Pinamar", name: "Muelle", type: "hls", url: "https://wowza.telpin.com.ar:1935/camara-muelle/muelle.stream_720p/playlist.m3u8" },
+            { city: "Pinamar", name: "Bunge y Libertador", type: "hls", url: "https://mistserver.telpin.com.ar:8443/hls/fuente/index.m3u8" },
+            { city: "Pinamar", name: "Bunge y el Mar", type: "hls", url: "https://wowza.telpin.com.ar:1935/camara-bypdomo/smil:camara-bypdomo.smil/playlist.m3u8" },
+            { city: "Pinamar", name: "Golf", type: "hls", url: "https://wowza.telpin.com.ar:1935/camara-golf/smil:camara-golf.smil/playlist.m3u8" },
+
+            // --- MAR DEL PLATA ---
+            { city: "Mar del Plata", name: "Playa Grande", type: "hls", url: "https://canal8mdp.com.ar/vivo/playagrande.m3u8" },
+            { city: "Mar del Plata", name: "Stream Noticias (YouTube)", type: "youtube", id: "3S-U2P6f8fM" }, // ID de ejemplo (TN)
+
+            // --- NECOCHEA ---
+            { city: "Necochea", name: "Av 2 y 83", type: "youtube", id: "FqgTC1hW2TE" }
+        ];
+
+        const container = document.getElementById('main-container');
+
+        // Agrupar por ciudad
+        const grouped = streams.reduce((acc, s) => {
+            if (!acc[s.city]) acc[s.city] = [];
+            acc[s.city].push(s);
+            return acc;
+        }, {});
+
+        function getEmbedUrl(stream, isModal = false) {
+            const origin = window.location.origin === "null" ? "*" : window.location.origin;
+            if (stream.type === "youtube") {
+                // enablejsapi y origin previenen el error 153
+                return `https://www.youtube.com/embed/${stream.id}?autoplay=1&mute=${isModal ? 0 : 1}&rel=0&enablejsapi=1&origin=${encodeURIComponent(origin)}`;
+            }
+            if (stream.type === "twitch") {
+                const parent = window.location.hostname || "localhost";
+                return `https://player.twitch.tv/?channel=${stream.id}&parent=${parent}&autoplay=true&muted=${isModal ? 'false' : 'true'}`;
+            }
+            return stream.url;
+        }
+
+        function setupHls(videoTag, url) {
+            if (Hls.isSupported()) {
+                const hls = new Hls();
+                hls.loadSource(url);
+                hls.attachMedia(videoTag);
+                hls.on(Hls.Events.MANIFEST_PARSED, () => videoTag.play().then(() => setTimeout(() => videoTag.pause(), 1500)));
+            }
+        }
+
+        // Renderizado dinámico
+        let globalIdx = 0;
+        for (const city in grouped) {
+            const section = document.createElement('section');
+            section.innerHTML = `<h2>${city}</h2>`;
+            const grid = document.createElement('div');
+            grid.className = 'grid-container';
+
+            grouped[city].forEach(s => {
+                const card = document.createElement('div');
+                card.className = 'video-card';
+                const videoId = `video-${globalIdx}`;
+                
+                let mediaHtml = '';
+                if (s.type === "hls") {
+                    mediaHtml = `<video id="${videoId}" muted playsinline></video>`;
+                } else {
+                    mediaHtml = `<iframe src="${getEmbedUrl(s)}" allow="autoplay; fullscreen"></iframe>`;
+                }
+
+                card.innerHTML = `
+                    <div class="video-wrapper">
+                        <div class="badge">${s.type.toUpperCase()}</div>
+                        ${mediaHtml}
+                    </div>
+                    <span>${s.name}</span>
+                `;
+                
+                card.onclick = () => openModal(s);
+                grid.appendChild(card);
+                section.appendChild(grid);
+                
+                if (s.type === "hls") {
+                    // Esperar un tick para que el DOM se actualice
+                    setTimeout(() => setupHls(document.getElementById(videoId), s.url), 0);
+                }
+                globalIdx++;
+            });
+            container.appendChild(section);
+        }
+
+        function openModal(s) {
+            const modal = document.getElementById('videoModal');
+            const content = document.getElementById('modalContent');
+            modal.style.display = 'flex';
+
+            if (s.type === "hls") {
+                content.innerHTML = `<video id="modalVideo" controls autoplay></video>`;
+                const hls = new Hls();
+                hls.loadSource(s.url);
+                hls.attachMedia(document.getElementById('modalVideo'));
+            } else {
+                content.innerHTML = `<iframe src="${getEmbedUrl(s, true)}" allow="autoplay; fullscreen"></iframe>`;
+            }
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('videoModal');
+            document.getElementById('modalContent').innerHTML = '';
+            modal.style.display = 'none';
+        }
+    </script>
+</body>
+</html>
